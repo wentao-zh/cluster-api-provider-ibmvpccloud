@@ -82,6 +82,12 @@ func (r *IBMVPCClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		IBMVPCCluster: ibmCluster,
 	}, iamEndpoint, apiKey, svcEndpoint)
 
+	if !controllerutil.ContainsFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer) {
+		controllerutil.AddFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer)
+		//_ = r.Update(ctx, clusterScope.IBMVPCCluster)
+		return ctrl.Result{}, nil
+	}
+
 	// Handle deleted clusters
 	if !ibmCluster.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(clusterScope)
@@ -95,9 +101,8 @@ func (r *IBMVPCClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 }
 
 func (r *IBMVPCClusterReconciler) reconcile(ctx context.Context, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer) {
-		controllerutil.AddFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer)
-	}
+
+	//clusterScope.IBMVPCCluster.ObjectMeta.Finalizers = append(clusterScope.IBMVPCCluster.ObjectMeta.Finalizers, infrastructurev1alpha3.ClusterFinalizer)
 
 	vpc, err := clusterScope.CreateVPC()
 	if err != nil {
@@ -134,23 +139,4 @@ func (r *IBMVPCClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrastructurev1alpha3.IBMVPCCluster{}).
 		Complete(r)
-}
-
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}
-
-func removeString(slice []string, s string) (result []string) {
-	for _, item := range slice {
-		if item == s {
-			continue
-		}
-		result = append(result, item)
-	}
-	return
 }
