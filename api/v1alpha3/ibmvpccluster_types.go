@@ -18,6 +18,7 @@ package v1alpha3
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -42,6 +43,10 @@ type IBMVPCClusterSpec struct {
 
 	// The Name of VPC
 	VPC string `json:"vpc"`
+
+	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
+	// +optional
+	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 }
 
 // IBMVPCClusterStatus defines the observed state of IBMVPCCluster
@@ -49,6 +54,8 @@ type IBMVPCClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	VPC VPC `json:"vpc"`
+	// Bastion Instance `json:"bastion,omitempty"`
+	Ready bool `json:"ready"`
 }
 
 type VPC struct {

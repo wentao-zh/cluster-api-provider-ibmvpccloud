@@ -1,6 +1,8 @@
 package scope
 
 import (
+	"context"
+
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/go-logr/logr"
 	infrav1 "github.com/multicloudlab/cluster-api-provider-ibmvpccloud/api/v1alpha3"
@@ -106,4 +108,14 @@ func (s *ClusterScope) ensureVPCUnique(vpcName string) (*vpcv1.VPC, error) {
 		}
 		return nil, nil
 	}
+}
+
+// PatchObject persists the cluster configuration and status.
+func (s *ClusterScope) PatchObject() error {
+	return s.patchHelper.Patch(context.TODO(), s.IBMVPCCluster)
+}
+
+// Close closes the current scope persisting the cluster configuration and status.
+func (s *ClusterScope) Close() error {
+	return s.PatchObject()
 }

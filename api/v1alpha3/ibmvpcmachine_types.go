@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha3
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,6 +45,10 @@ type IBMVPCMachineSpec struct {
 	// TODO: add a reference link of profile
 	Profile string `json:"profile,required"`
 
+	// ProviderID is the unique identifier as specified by the cloud provider.
+	// +optional
+	ProviderID *string `json:"providerID,omitempty"`
+
 	// PrimaryNetworkInterface is required to specify subnet
 	PrimaryNetworkInterface NetworkInterface `json:"primaryNetworkInterface"`
 }
@@ -52,9 +57,24 @@ type IBMVPCMachineSpec struct {
 type IBMVPCMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	InstanceID string `json:"instanceID,omitempty"`
+
+	Ready bool `json:"ready"`
+
+	// Addresses contains the GCP instance associated addresses.
+	Addresses []v1.NodeAddress `json:"addresses,omitempty"`
+
+	// InstanceStatus is the status of the GCP instance for this machine.
+	// +optional
+	InstanceStatus string `json:"instanceState,omitempty"`
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:path=ibmvpcmachines,scope=Namespaced,categories=cluster-api
+// +kubebuilder:storageversion
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Cluster infrastructure is ready for IBM VPC instances"
 
 // IBMVPCMachine is the Schema for the ibmvpcmachines API
 type IBMVPCMachine struct {

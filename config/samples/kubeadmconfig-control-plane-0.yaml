@@ -1,0 +1,17 @@
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: KubeadmConfig
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: ibm-vpc-1
+    cluster.x-k8s.io/control-plane: ""
+  name: controlplane-zwtzhang-0-config
+  namespace: default
+spec:
+  initConfiguration:
+    nodeRegistration:
+      kubeletExtraArgs:
+        eviction-hard: nodefs.available<0%,nodefs.inodesFree<0%,imagefs.available<0%
+  clusterConfiguration:
+    controllerManager:
+      extraArgs:
+        enable-hostpath-provisioner: "true"

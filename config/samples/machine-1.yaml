@@ -20,7 +20,7 @@ spec:
     kind: IBMVPCMachine
     name: controlplane-zwtzhang-0
     namespace: default
-  providerID: ibmvpc:////ibmvpc-1-controlplane-0
+  providerID: ibmvpc:////ibm-vpc-1-controlplane-zwtzhang-0
   version: v1.18.2
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
@@ -29,6 +29,7 @@ metadata:
   name: controlplane-zwtzhang-0
 spec:
   name: controlplane-zwtzhang-0
+  providerID: ibmvpc:////ibm-vpc-1-controlplane-zwtzhang-0
   image: r134-ed3f775f-ad7e-4e37-ae62-7199b4988b00
   zone: us-south-3
   profile: bx2-4x16

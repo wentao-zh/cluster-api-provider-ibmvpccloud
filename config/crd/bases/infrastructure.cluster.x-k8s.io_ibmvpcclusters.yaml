@@ -43,6 +43,20 @@ spec:
           spec:
             description: IBMVPCClusterSpec defines the desired state of IBMVPCCluster
             properties:
+              controlPlaneEndpoint:
+                description: ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
+                properties:
+                  host:
+                    description: The hostname on which the API server is serving.
+                    type: string
+                  port:
+                    description: The port on which the API server is serving.
+                    format: int32
+                    type: integer
+                required:
+                - host
+                - port
+                type: object
               region:
                 description: The IBM Cloud Region the cluster lives in.
                 type: string
@@ -60,6 +74,9 @@ spec:
           status:
             description: IBMVPCClusterStatus defines the observed state of IBMVPCCluster
             properties:
+              ready:
+                description: Bastion Instance `json:"bastion,omitempty"`
+                type: boolean
               vpc:
                 description: 'INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run "make" to regenerate code after modifying this file'
                 properties:
@@ -72,6 +89,7 @@ spec:
                 - name
                 type: object
             required:
+            - ready
             - vpc
             type: object
         type: object

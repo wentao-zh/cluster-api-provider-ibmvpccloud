@@ -10,13 +10,20 @@ metadata:
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
+    categories:
+    - cluster-api
     kind: IBMVPCMachine
     listKind: IBMVPCMachineList
     plural: ibmvpcmachines
     singular: ibmvpcmachine
   scope: Namespaced
   versions:
-  - name: v1alpha3
+  - additionalPrinterColumns:
+    - description: Cluster infrastructure is ready for IBM VPC instances
+      jsonPath: .status.ready
+      name: Ready
+      type: string
+    name: v1alpha3
     schema:
       openAPIV3Schema:
         description: IBMVPCMachine is the Schema for the ibmvpcmachines API
@@ -48,6 +55,9 @@ spec:
               profile:
                 description: "Profile indicates the flavor of instance. Example: bx2-8x32\tmeans 8 vCPUs\t32 GB RAM\t16 Gbps TODO: add a reference link of profile"
                 type: string
+              providerID:
+                description: ProviderID is the unique identifier as specified by the cloud provider.
+                type: string
               zone:
                 description: 'Zone is the place where the instance should be created. Example: us-south-3 TODO: Actually zone is transparent to user. The field user can access is location. Example: Dallas 2'
                 type: string
@@ -59,10 +69,38 @@ spec:
             type: object
           status:
             description: IBMVPCMachineStatus defines the observed state of IBMVPCMachine
+            properties:
+              addresses:
+                description: Addresses contains the GCP instance associated addresses.
+                items:
+                  description: NodeAddress contains information for the node's address.
+                  properties:
+                    address:
+                      description: The node address.
+                      type: string
+                    type:
+                      description: Node address type, one of Hostname, ExternalIP or InternalIP.
+                      type: string
+                  required:
+                  - address
+                  - type
+                  type: object
+                type: array
+              instanceID:
+                type: string
+              instanceState:
+                description: InstanceStatus is the status of the GCP instance for this machine.
+                type: string
+              ready:
+                type: boolean
+            required:
+            - ready
             type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

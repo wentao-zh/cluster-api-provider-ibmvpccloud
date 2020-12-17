@@ -24,7 +24,6 @@ import (
 	infrastructurev1alpha3 "github.com/multicloudlab/cluster-api-provider-ibmvpccloud/api/v1alpha3"
 	"github.com/multicloudlab/cluster-api-provider-ibmvpccloud/cloud/scope"
 	"github.com/pkg/errors"
-	"github.com/prometheus/common/log"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/util"
@@ -45,7 +44,7 @@ type IBMVPCClusterReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ibmvpcclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
 
-func (r *IBMVPCClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *IBMVPCClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("ibmvpccluster", req.NamespacedName)
 
@@ -82,11 +81,12 @@ func (r *IBMVPCClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		IBMVPCCluster: ibmCluster,
 	}, iamEndpoint, apiKey, svcEndpoint)
 
-	if !controllerutil.ContainsFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer) {
-		controllerutil.AddFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer)
-		//_ = r.Update(ctx, clusterScope.IBMVPCCluster)
-		return ctrl.Result{}, nil
-	}
+	// Always close the scope when exiting this function so we can persist any GCPMachine changes.
+	defer func() {
+		if err := clusterScope.Close(); err != nil && reterr == nil {
+			reterr = err
+		}
+	}()
 
 	// Handle deleted clusters
 	if !ibmCluster.DeletionTimestamp.IsZero() {
@@ -101,8 +101,11 @@ func (r *IBMVPCClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 }
 
 func (r *IBMVPCClusterReconciler) reconcile(ctx context.Context, clusterScope *scope.ClusterScope) (ctrl.Result, error) {
-
-	//clusterScope.IBMVPCCluster.ObjectMeta.Finalizers = append(clusterScope.IBMVPCCluster.ObjectMeta.Finalizers, infrastructurev1alpha3.ClusterFinalizer)
+	if !controllerutil.ContainsFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer) {
+		controllerutil.AddFinalizer(clusterScope.IBMVPCCluster, infrastructurev1alpha3.ClusterFinalizer)
+		//_ = r.Update(ctx, clusterScope.IBMVPCCluster)
+		return ctrl.Result{}, nil
+	}
 
 	vpc, err := clusterScope.CreateVPC()
 	if err != nil {
@@ -115,13 +118,14 @@ func (r *IBMVPCClusterReconciler) reconcile(ctx context.Context, clusterScope *s
 		}
 	}
 
+	clusterScope.IBMVPCCluster.Status.Ready = true
 	// TODO: I didn't find Status().Update in other provider's repo. But it appears in kubebuilder guide
 	// https://book.kubebuilder.io/cronjob-tutorial/controller-implementation.html#2-list-all-active-jobs-and-update-the-status
 	// Is there a way to perform updating of status implicitly?
-	if err := r.Status().Update(ctx, clusterScope.IBMVPCCluster); err != nil {
-		log.Error(err, "unable to update IBMVPCCluster status")
-		return ctrl.Result{}, err
-	}
+	//if err := r.Status().Update(ctx, clusterScope.IBMVPCCluster); err != nil {
+	//	log.Error(err, "unable to update IBMVPCCluster status")
+	//	return ctrl.Result{}, err
+	//}
 
 	return ctrl.Result{}, nil
 }

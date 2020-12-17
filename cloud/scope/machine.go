@@ -1,6 +1,9 @@
 package scope
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/go-logr/logr"
 	infrav1 "github.com/multicloudlab/cluster-api-provider-ibmvpccloud/api/v1alpha3"
@@ -35,10 +38,10 @@ type MachineScope struct {
 }
 
 func NewMachineScope(params MachineScopeParams, iamEndpoint string, apiKey string, svcEndpoint string) (*MachineScope, error) {
-	if params.Cluster == nil {
+	if params.Machine == nil {
 		return nil, errors.New("failed to generate new scope from nil Machine")
 	}
-	if params.IBMVPCCluster == nil {
+	if params.IBMVPCMachine == nil {
 		return nil, errors.New("failed to generate new scope from nil IBMVPCCluster")
 	}
 
@@ -46,7 +49,7 @@ func NewMachineScope(params MachineScopeParams, iamEndpoint string, apiKey strin
 		params.Logger = klogr.New()
 	}
 
-	helper, err := patch.NewHelper(params.IBMVPCCluster, params.Client)
+	helper, err := patch.NewHelper(params.IBMVPCMachine, params.Client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to init patch helper")
 	}
@@ -69,6 +72,17 @@ func NewMachineScope(params MachineScopeParams, iamEndpoint string, apiKey strin
 }
 
 func (m *MachineScope) CreateMachine() (*vpcv1.Instance, error) {
+	instanceReply, err := m.ensureInstanceUnique(m.IBMVPCMachine.Spec.Name)
+	if err != nil {
+		return nil, err
+	} else {
+		if instanceReply != nil {
+			//TODO need a resonable wraped error
+			fmt.Printf("MachineScope CreateMachine:%s,%s\n", *instanceReply.Name, *instanceReply.ID)
+			return instanceReply, nil
+		}
+	}
+
 	options := &vpcv1.CreateInstanceOptions{}
 	options.SetInstancePrototype(&vpcv1.InstancePrototype{
 		Name: &m.IBMVPCMachine.Spec.Name,
@@ -89,4 +103,38 @@ func (m *MachineScope) CreateMachine() (*vpcv1.Instance, error) {
 	})
 	instance, _, err := m.IBMVPCClients.VPCService.CreateInstance(options)
 	return instance, err
+}
+
+func (m *MachineScope) ensureInstanceUnique(instanceName string) (*vpcv1.Instance, error) {
+	options := &vpcv1.ListInstancesOptions{}
+	instances, _, err := m.IBMVPCClients.VPCService.ListInstances(options)
+
+	if err != nil {
+		return nil, err
+	} else {
+		for _, instance := range instances.Instances {
+			if *instance.Name == instanceName {
+				return &instance, nil
+			}
+		}
+		return nil, nil
+	}
+}
+
+func (m *MachineScope) GetMachine(instanceID string) (*vpcv1.Instance, error) {
+	options := &vpcv1.GetInstanceOptions{}
+	options.SetID(instanceID)
+
+	instance, _, err := m.IBMVPCClients.VPCService.GetInstance(options)
+	return instance, err
+}
+
+// PatchObject persists the cluster configuration and status.
+func (m *MachineScope) PatchObject() error {
+	return m.patchHelper.Patch(context.TODO(), m.IBMVPCMachine)
+}
+
+// Close closes the current scope persisting the cluster configuration and status.
+func (m *MachineScope) Close() error {
+	return m.PatchObject()
 }
