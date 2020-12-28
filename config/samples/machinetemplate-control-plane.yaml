@@ -1,0 +1,15 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: IBMVPCMachineTemplate
+metadata:
+  name: ibm-vpc-control-plane
+  namespace: default
+spec:
+  template:
+    spec:
+      name: controlplane-zwtzhang-1
+      providerID: ibmvpc:////ibm-vpc-controlplane-zwtzhang-1
+      image: r134-cf0fde97-e59d-4ec7-94ad-48681dc3405e
+      zone: us-south-1
+      profile: bx2-4x16
+      primaryNetworkInterface: 
+        subnet: 0716-1452928d-7d93-425e-8600-c6ea3bc8bffc

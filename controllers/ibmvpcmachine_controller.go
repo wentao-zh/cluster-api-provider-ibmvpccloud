@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/cluster-api/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // IBMVPCMachineReconciler reconciles a IBMVPCMachine object
@@ -49,7 +50,7 @@ func (r *IBMVPCMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 
 	// your logic here
 	// Fetch the GCPMachine instance.
-	log.Info("zwtzhang debug.......1")
+
 	ibmVpcMachine := &infrastructurev1alpha3.IBMVPCMachine{}
 	err := r.Get(ctx, req.NamespacedName, ibmVpcMachine)
 	if err != nil {
@@ -58,7 +59,6 @@ func (r *IBMVPCMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 		}
 		return ctrl.Result{}, err
 	}
-	log.Info("zwtzhang debug.......2")
 	// Fetch the Machine.
 	machine, err := util.GetOwnerMachine(ctx, r.Client, ibmVpcMachine.ObjectMeta)
 	if err != nil {
@@ -68,7 +68,7 @@ func (r *IBMVPCMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 		log.Info("Machine Controller has not yet set OwnerRef")
 		return ctrl.Result{}, nil
 	}
-	log.Info("zwtzhang debug.......3")
+
 	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, ibmVpcMachine.ObjectMeta)
 	if err != nil {
@@ -79,7 +79,6 @@ func (r *IBMVPCMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 	log = log.WithValues("cluster", cluster.Name)
 
 	ibmCluster := &infrastructurev1alpha3.IBMVPCCluster{}
-	log.Info("zwtzhang debug.......4")
 	ibmVpcClusterName := client.ObjectKey{
 		Namespace: ibmVpcMachine.Namespace,
 		Name:      cluster.Spec.InfrastructureRef.Name,
@@ -88,13 +87,12 @@ func (r *IBMVPCMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 		log.Info("IBMVPCCluster is not available yet")
 		return ctrl.Result{}, nil
 	}
-	log.Info("zwtzhang debug.......5")
+
 	// Create the cluster scope
 	iamEndpoint := os.Getenv("IAM_ENDPOINT")
 	apiKey := os.Getenv("API_KEY")
 	svcEndpoint := os.Getenv("SERVICE_ENDPOINT")
 
-	log.Info("zwtzhang debug.......6")
 	// Create the machine scope
 	machineScope, err := scope.NewMachineScope(scope.MachineScopeParams{
 		Client:        r.Client,
@@ -107,7 +105,6 @@ func (r *IBMVPCMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 	if err != nil {
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
 	}
-	log.Info("zwtzhang debug.......7")
 	// Always close the scope when exiting this function so we can persist any GCPMachine changes.
 
 	defer func() {
@@ -116,9 +113,13 @@ func (r *IBMVPCMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 		}
 	}()
 
-	log.Info("zwtzhang debug.......8")
+	// Handle deleted machines
+	if !ibmVpcMachine.ObjectMeta.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(machineScope)
+	}
+
 	// Handle non-deleted machines
-	return r.reconcile(ctx, machineScope)
+	return r.reconcileNormal(ctx, machineScope)
 }
 
 func (r *IBMVPCMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -127,24 +128,25 @@ func (r *IBMVPCMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *IBMVPCMachineReconciler) reconcile(ctx context.Context, machineScope *scope.MachineScope) (ctrl.Result, error) {
+func (r *IBMVPCMachineReconciler) reconcileNormal(ctx context.Context, machineScope *scope.MachineScope) (ctrl.Result, error) {
+	controllerutil.AddFinalizer(machineScope.IBMVPCMachine, infrastructurev1alpha3.MachineFinalizer)
 
-	//clusterScope.IBMVPCCluster.ObjectMeta.Finalizers = append(clusterScope.IBMVPCCluster.ObjectMeta.Finalizers, infrastructurev1alpha3.ClusterFinalizer)
-	log.Info("zwtzhang debug.......reconcile...1")
+	// Make sure bootstrap data is available and populated.
+	if machineScope.Machine.Spec.Bootstrap.DataSecretName == nil {
+		log.Info("Bootstrap data secret reference is not yet available")
+		return ctrl.Result{}, nil
+	}
 
 	instance, err := r.getOrCreate(machineScope)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to reconcile VSI for IBMVPCMachine %s/%s", machineScope.IBMVPCMachine.Namespace, machineScope.IBMVPCMachine.Name)
 	}
-	log.Info("zwtzhang debug.......reconcile...2")
 
 	if instance != nil {
 		machineScope.IBMVPCMachine.Status.InstanceID = *instance.ID
 		machineScope.IBMVPCMachine.Status.Ready = true
 		log.Info(*instance.ID)
 	}
-	log.Info(*instance.ID)
-	log.Info("zwtzhang debug.......reconcile...3")
 
 	return ctrl.Result{}, nil
 }
@@ -152,4 +154,22 @@ func (r *IBMVPCMachineReconciler) reconcile(ctx context.Context, machineScope *s
 func (r *IBMVPCMachineReconciler) getOrCreate(scope *scope.MachineScope) (*vpcv1.Instance, error) {
 	instance, err := scope.CreateMachine()
 	return instance, err
+}
+
+func (r *IBMVPCMachineReconciler) reconcileDelete(scope *scope.MachineScope) (_ ctrl.Result, reterr error) {
+	scope.Info("Handling deleted IBMVPCMachine")
+
+	if err := scope.DeleteMachine(); err != nil {
+		log.Info("error deleting IBMVPCMachine")
+		return ctrl.Result{}, errors.Wrapf(err, "error deleting IBMVPCMachine %s/%s", scope.IBMVPCMachine.Namespace, scope.IBMVPCMachine.Spec.Name)
+	}
+
+	defer func() {
+		if reterr == nil {
+			// VSI is deleted so remove the finalizer.
+			controllerutil.RemoveFinalizer(scope.IBMVPCMachine, infrastructurev1alpha3.MachineFinalizer)
+		}
+	}()
+
+	return ctrl.Result{}, nil
 }

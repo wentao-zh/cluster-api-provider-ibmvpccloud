@@ -8,6 +8,8 @@ import (
 	"github.com/go-logr/logr"
 	infrav1 "github.com/multicloudlab/cluster-api-provider-ibmvpccloud/api/v1alpha3"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/klogr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -83,6 +85,13 @@ func (m *MachineScope) CreateMachine() (*vpcv1.Instance, error) {
 		}
 	}
 
+	//keyID := "r134-1a380491-9e56-4891-8d79-ebee3de1ee81" // sshkey that is under zwtzhang's account
+	keyID := "r134-2a82b725-e570-43d3-8b23-9539e8641944" // sshkey that is under emma's account
+	cloudInitData, err := m.GetBootstrapData()
+	if err != nil {
+		return nil, err
+	}
+
 	options := &vpcv1.CreateInstanceOptions{}
 	options.SetInstancePrototype(&vpcv1.InstancePrototype{
 		Name: &m.IBMVPCMachine.Spec.Name,
@@ -100,9 +109,22 @@ func (m *MachineScope) CreateMachine() (*vpcv1.Instance, error) {
 				ID: &m.IBMVPCMachine.Spec.PrimaryNetworkInterface.Subnet,
 			},
 		},
+		Keys: []vpcv1.KeyIdentityIntf{
+			&vpcv1.KeyIdentity{
+				ID: &keyID,
+			},
+		},
+		UserData: &cloudInitData,
 	})
 	instance, _, err := m.IBMVPCClients.VPCService.CreateInstance(options)
 	return instance, err
+}
+
+func (m *MachineScope) DeleteMachine() error {
+	options := &vpcv1.DeleteInstanceOptions{}
+	options.SetID(m.IBMVPCMachine.Status.InstanceID)
+	_, err := m.IBMVPCClients.VPCService.DeleteInstance(options)
+	return err
 }
 
 func (m *MachineScope) ensureInstanceUnique(instanceName string) (*vpcv1.Instance, error) {
@@ -137,4 +159,23 @@ func (m *MachineScope) PatchObject() error {
 // Close closes the current scope persisting the cluster configuration and status.
 func (m *MachineScope) Close() error {
 	return m.PatchObject()
+}
+
+// GetBootstrapData returns the bootstrap data from the secret in the Machine's bootstrap.dataSecretName.
+func (m *MachineScope) GetBootstrapData() (string, error) {
+	if m.Machine.Spec.Bootstrap.DataSecretName == nil {
+		return "", errors.New("error retrieving bootstrap data: linked Machine's bootstrap.dataSecretName is nil")
+	}
+
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{Namespace: m.Machine.Namespace, Name: *m.Machine.Spec.Bootstrap.DataSecretName}
+	if err := m.client.Get(context.TODO(), key, secret); err != nil {
+		return "", errors.Wrapf(err, "failed to retrieve bootstrap data secret for IBMVPCMachine %s/%s", m.Machine.Namespace, m.Machine.Name)
+	}
+
+	value, ok := secret.Data["value"]
+	if !ok {
+		return "", errors.New("error retrieving bootstrap data: secret value key is missing")
+	}
+	return string(value), nil
 }

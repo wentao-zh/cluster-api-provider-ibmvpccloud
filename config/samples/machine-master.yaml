@@ -1,0 +1,39 @@
+apiVersion: cluster.x-k8s.io/v1alpha3
+kind: Machine
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: ibm-vpc
+    cluster.x-k8s.io/control-plane: ""  
+  name: controlplane-zwtzhang-1
+  namespace: default
+spec:
+  bootstrap:
+    configRef:
+      apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+      kind: KubeadmConfig
+      name: controlplane-zwtzhang-1-config
+      namespace: default
+  clusterName: ibm-vpc
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+    kind: IBMVPCMachine
+    name: controlplane-zwtzhang-1
+    namespace: default
+  providerID: ibmvpc:////ibm-vpc-controlplane-zwtzhang-1
+  version: v1.18.2
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: IBMVPCMachine
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: ibm-vpc
+    cluster.x-k8s.io/control-plane: "true"  
+  name: controlplane-zwtzhang-1
+spec:
+  name: controlplane-zwtzhang-1
+  providerID: ibmvpc:////ibm-vpc-controlplane-zwtzhang-1
+  image: r134-cf0fde97-e59d-4ec7-94ad-48681dc3405e
+  zone: us-south-1
+  profile: bx2-4x16
+  primaryNetworkInterface: 
+    subnet: 0716-1452928d-7d93-425e-8600-c6ea3bc8bffc

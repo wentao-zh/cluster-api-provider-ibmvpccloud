@@ -2,16 +2,20 @@
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
 kind: IBMVPCCluster
 metadata:
-  name: ibm-vpc-2
+  labels:
+    cluster.x-k8s.io/cluster-name: ibm-vpc
+  name: ibm-vpc
 spec:
   region: "us-sout-1"
-  resourceGroup: "823edda102129f3232a0dc065536fd72"
+  resourceGroup: "4f15679623607b855b1a27a67f20e1c7"
   vpc: "zwtzhang-vpc"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: Cluster
 metadata:
-  name: ibm-vpc-2
+  labels:
+    cluster.x-k8s.io/cluster-name: ibm-vpc
+  name: ibm-vpc
   namespace: default
 spec:
   clusterNetwork:
@@ -25,5 +29,13 @@ spec:
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
     kind: IBMVPCCluster
-    name: ibm-vpc-2
+    name: ibm-vpc
     namespace: default
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    kind: KubeadmControlPlane
+    name: ibm-vpc-control-plane
+    namespace: default
+  controlPlaneEndpoint:
+    host: 150.238.51.93
+    port: 6443

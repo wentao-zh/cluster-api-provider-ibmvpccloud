@@ -7,7 +7,7 @@ metadata:
   name: ibm-vpc-1
 spec:
   region: "us-sout-1"
-  resourceGroup: "823edda102129f3232a0dc065536fd72"
+  resourceGroup: "4f15679623607b855b1a27a67f20e1c7"
   vpc: "zwtzhang-vpc-1"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
@@ -37,5 +37,5 @@ spec:
     name: ibm-vpc-1-control-plane
     namespace: default
   controlPlaneEndpoint:
-    host: 172.17.0.3
+    host: 150.238.55.156
     port: 6443
